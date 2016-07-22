@@ -47,9 +47,7 @@ const int CALIBRATION2 =	0x1C;           // default 0x00_0000
 
 #define PS_PER_SEC        (1e12)  // ps/s
 #define CLOCK_FREQ        (1e7)   // Hz
-//#define CLOCK_PERIOD_PS   (uint32_t)(PS_PER_SEC/CLOCK_FREQ)  // ps
-
-#define CLOCK_PERIOD_PS   100000  // ps
+#define CLOCK_PERIOD_PS   (uint32_t)(PS_PER_SEC/CLOCK_FREQ)  // ps
 #define CALIBRATION2_PERIODS 20   // Can only be 2, 10, 20, or 40.
 
 // Coarse count interrupt assignments
@@ -60,9 +58,9 @@ const int interruptPin =      18;		// Interrupt IDE Pin on Mega
 class tdc7200Channel {
 private:
 	//  Some of these really should be private and hidden...
-	const char ID;
 	const int ENABLE;
 	const int CSB;
+ 
 	unsigned long time1Result;
   unsigned long time2Result;
 	unsigned long clock1Result;
@@ -70,9 +68,10 @@ private:
   unsigned long cal2Result;
   
 public:
-	const int STOP;
-	const int INTB;
-
+  const char ID;   // channel letter
+  const int STOP;  // pin number on Arduino
+  const int INTB;  // pin number on Arduino
+ 
   // NOTE: changed to long from long long to make debugging easier
 	unsigned long stopTime;
   unsigned long time_interval;

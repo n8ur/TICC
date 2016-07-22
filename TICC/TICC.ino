@@ -1,7 +1,7 @@
 // TICC.ino - master sketch file
 
 // TICC Time interval Counter based on TICC Shield using TDC7200
-// version 0.51 -- 5 July 2016
+// version 0.52 -- 21 July 2016
 
 // Copyright John Ackermann N8UR 2016
 // Portions Copyright George Byrkit K9TRV 2016
@@ -42,8 +42,6 @@ void setup() {
 
 //  attachInterrupt(digitalPinToInterrupt(interruptPin), coarseTimer, RISING);
 
-//  delay(1000);
-
   for(i = 0; i < ARRAY_SIZE(channels); ++i)
       channels[i].ready_next();
 
@@ -68,15 +66,13 @@ void loop() {
 
       Serial.print(" Int Status = ");
       Serial.print(channels[i].readReg8(INT_STATUS), HEX);   
- //     Serial.print("   Int_mask = ");
- //     Serial.println(channels[i].readReg8(INT_MASK), HEX);
-      
+       
       channels[i].time_interval = channels[i].read();
-      channels[i]. write(INT_STATUS, 0x1f);  //clear interrupt
+//      channels[i]. write(INT_STATUS, 0x1f);  //clear interrupt
 
       channels[i].time_stamp = channels[i].stopTime - channels[i].time_interval;
 
-      Serial.print("channel "), Serial.print(i);
+      Serial.print("channel "), Serial.print(channels[i].ID);
       Serial.print("  stop time: "), Serial.print(channels[i].stopTime);      
       Serial.print("  time interval: "), Serial.print(channels[i].time_interval);
       Serial.print("  timestamp: "), Serial.println(channels[i].time_stamp);
@@ -110,21 +106,21 @@ tdc7200Channel::tdc7200Channel(char id, int enable, int intb, int csb, int stop)
 
 void tdc7200Channel::setup() {
   digitalWrite(ENABLE, LOW);
-  delay(10);
+  delay(1);
   digitalWrite(ENABLE, HIGH);  // Needs a low-to-high transition to enable
-  delay(10);
+  delay(1);
   
   write(INT_MASK, 0x01);  // disable clock overflow interrupts, allow only measurement interrupt
-  write(CONFIG2, 0x80);  // Cal2 is 20 clocks
+  write(CONFIG2, 0x83);  // Cal2 is 20 clocks, 1 meas cycle, 1 stop
   
   write(CLOCK_CNTR_STOP_MASK_H, 0x00);
-  write(CLOCK_CNTR_STOP_MASK_L, 0x01);  // hold off one clock before enabling STOP
+  write(CLOCK_CNTR_STOP_MASK_L, 0x00);  // hold off no clocks before enabling STOP
 
-//  write(COARSE_CNTR_OVF_H, 0x00);   // gives longest time until overflow
-//  write(COARSE_CNTR_OVF_L, 0x00);
+  write(COARSE_CNTR_OVF_H, 0xF0);   
+  write(COARSE_CNTR_OVF_L, 0x00);
 
-//  write(CLOCK_CNTR_OVF_H, 0x00);   // gives longest time until overflow
-//  write(CLOCK_CNTR_OVF_L, 0x00);
+  write(CLOCK_CNTR_OVF_H, 0xF0);   
+  write(CLOCK_CNTR_OVF_L, 0x00);
   
 }
 
@@ -151,18 +147,7 @@ unsigned long tdc7200Channel::readReg24(byte address) {
 
   digitalWrite(CSB, HIGH);
   SPI.endTransaction();
-  
-
-  //  These values are 24-bit and we're reading them into a 32-bit
-  //  variable.
-  //
-  //  This does some fancy pointer games to read it into the int starting
-  //  at the 2nd byte in rather than the 1st.  That should get the correct
-  //  2-4bit value read.
-  //  This clobbers the stack at runtime:
-//	SPI.transfer((uint8_t *) &value + 1, 3);
-
-	return value;
+  return value;
 }
 
 // Read TDC for channel
@@ -170,8 +155,6 @@ long int tdc7200Channel::read() {
   //  Start a SPI transaction
   //  Max speed for the tdc7200 is 20MHz
   //  CPOL = 0; CPHA = 0
-//  SPI.beginTransaction(SPISettings(20000000, MSBFIRST, SPI_MODE0));
-//  digitalWrite(CSB, LOW);
 
   time1Result = readReg24(TIME1);
   time2Result  = readReg24(TIME2);
@@ -200,22 +183,17 @@ long int tdc7200Channel::read() {
   // Add in another 32bit variable.  Given the limitations on
   // inputs, these two 32 bits still won't overflow.
   tempu32 += clock1Result * CLOCK_PERIOD_PS;
-  // return tempu32;
-//  digitalWrite(CSB, HIGH);
-//  SPI.endTransaction();
-
   return (unsigned long)tempu32;
+  
 }
 
 // Enable next measurement cycle
 void tdc7200Channel::ready_next() {
     // needs to set the enable bit (START_MEAS in CONFIG1)
-
+    // clears interrupt bits
     delay(10);  
     write(CONFIG1, 0x83);  // Measurement mode 2 - force cal
 
-//      write(CONFIG1, 0x03);  // Measurement mode 2 - don't force cal     
-//      write(CONFIG1, 0x81);  // Measurement mode 1
 }
 
 // Calculate and print time interval to serial
